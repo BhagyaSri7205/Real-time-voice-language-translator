@@ -14,10 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +41,7 @@ import androidx.core.content.ContextCompat
 import com.voxtranslate.app.MainViewModel
 import com.voxtranslate.app.speech.SpeechEvent
 import com.voxtranslate.app.speech.SpeechToTextManager
+import com.voxtranslate.app.speech.TtsEvent
 import com.voxtranslate.app.translate.Languages
 import com.voxtranslate.app.translate.TranslateResult
 import com.voxtranslate.app.translate.VoxLanguage
@@ -43,7 +49,12 @@ import com.voxtranslate.app.ui.components.LanguagePicker
 import com.voxtranslate.app.ui.components.MicButton
 import com.voxtranslate.app.ui.components.TalkingAvatar
 
-private data class Turn(val speakerLabel: String, val original: String, val translated: String)
+private data class Turn(
+    val speakerLabel: String,
+    val original: String,
+    val translated: String,
+    val translatedLocale: String
+)
 
 /**
  * Two people, two languages, one conversation. Each side has its own mic —
@@ -66,6 +77,8 @@ fun ConversationScreen(viewModel: MainViewModel) {
 
     var activeSide by remember { mutableStateOf<Char?>(null) } // 'A', 'B', or null
     var statusText by remember { mutableStateOf("Tap either mic to start the conversation") }
+    var autoContinue by remember { mutableStateOf(true) }
+    var errorText by remember { mutableStateOf<String?>(null) }
     val turns = remember { mutableStateListOf<Turn>() }
 
     val speechManager = remember { SpeechToTextManager(context) }
@@ -98,6 +111,7 @@ fun ConversationScreen(viewModel: MainViewModel) {
 
     LaunchedEffect(activeSide) {
         val side = activeSide ?: return@LaunchedEffect
+        errorText = null
         val speakLang: VoxLanguage = if (side == 'A') langA else langB
         val hearLang: VoxLanguage = if (side == 'A') langB else langA
         val speakerLabel = if (side == 'A') "Person A (${speakLang.displayName})" else "Person B (${speakLang.displayName})"
@@ -111,23 +125,50 @@ fun ConversationScreen(viewModel: MainViewModel) {
                         statusText = "Translating…"
                         when (val result = viewModel.translate(event.text, speakLang.mlkitCode, hearLang.mlkitCode)) {
                             is TranslateResult.Success -> {
-                                turns.add(0, Turn(speakerLabel, event.text, result.text))
+                                turns.add(0, Turn(speakerLabel, event.text, result.text, hearLang.speechLocale))
                                 viewModel.saveHistory(
                                     speakLang.displayName, hearLang.displayName,
                                     event.text, result.text, "conversation"
                                 )
-                                viewModel.speak(result.text, hearLang.speechLocale)
-                                statusText = "Tap either mic to continue"
+                                statusText = "Speaking translation to the other person…"
+                                val nextSide = if (side == 'A') 'B' else 'A'
+                                viewModel.speak(result.text, hearLang.speechLocale) { ttsEvent ->
+                                    if (ttsEvent is TtsEvent.Done || ttsEvent is TtsEvent.Error) {
+                                        if (autoContinue) {
+                                            // Automatically starts listening for the other
+                                            // person's reply once the translation finishes
+                                            // playing, so the conversation keeps flowing
+                                            // without needing to tap a mic every turn.
+                                            activeSide = nextSide
+                                        } else {
+                                            statusText = "Tap either mic to continue"
+                                        }
+                                    }
+                                }
                             }
-                            is TranslateResult.Error -> statusText = result.message
-                            is TranslateResult.NeedsDownload -> statusText = result.message
+                            is TranslateResult.Error -> {
+                                errorText = result.message
+                                statusText = "Translation failed — see details below"
+                            }
+                            is TranslateResult.NeedsDownload -> {
+                                errorText = result.message
+                                statusText = "Translation needs a download — see details below"
+                            }
                         }
                     } else {
                         statusText = "Didn't catch that — try again."
                     }
                 }
-                is SpeechEvent.Error -> statusText = event.message
-                is SpeechEvent.Done -> activeSide = null
+                is SpeechEvent.Error -> {
+                    errorText = event.message
+                    statusText = "Couldn't hear $speakerLabel"
+                }
+                is SpeechEvent.Done -> {
+                    // Only clear the active mic here; if a translation succeeded above,
+                    // activeSide may already have been (re)armed for the next speaker by
+                    // the TTS completion callback, so only null it out if nothing else set it.
+                    if (activeSide == side) activeSide = null
+                }
             }
         }
     }
@@ -147,6 +188,21 @@ fun ConversationScreen(viewModel: MainViewModel) {
             TalkingAvatar(isTalking = isSpeaking, size = 72.dp)
         }
         Text(statusText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        errorText?.let {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text(it, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Auto-continue after each turn", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = autoContinue, onCheckedChange = { autoContinue = it })
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -197,11 +253,17 @@ fun ConversationScreen(viewModel: MainViewModel) {
                         Spacer(Modifier.height(4.dp))
                         Text(turn.original, style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(4.dp))
-                        Text(
-                            "→ ${turn.translated}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "→ ${turn.translated}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = { viewModel.speak(turn.translated, turn.translatedLocale) }) {
+                                Icon(Icons.Filled.VolumeUp, contentDescription = "Listen again")
+                            }
+                        }
                     }
                 }
             }

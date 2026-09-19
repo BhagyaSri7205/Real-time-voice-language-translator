@@ -14,8 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +28,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +59,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     var statusText by remember { mutableStateOf("Tap the mic and start speaking") }
     var recognizedText by remember { mutableStateOf("") }
     var translatedText by remember { mutableStateOf("") }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
     val speechManager = remember { SpeechToTextManager(context) }
 
@@ -79,6 +83,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     fun startListening() {
         recognizedText = ""
         translatedText = ""
+        errorText = null
         if (hasMicPermission()) {
             listening = true
         } else {
@@ -109,14 +114,23 @@ fun HomeScreen(viewModel: MainViewModel) {
                                     viewModel.speak(result.text, targetLang.speechLocale)
                                 }
                             }
-                            is TranslateResult.Error -> statusText = result.message
-                            is TranslateResult.NeedsDownload -> statusText = result.message
+                            is TranslateResult.Error -> {
+                                errorText = result.message
+                                statusText = "Translation failed — see details below"
+                            }
+                            is TranslateResult.NeedsDownload -> {
+                                errorText = result.message
+                                statusText = "Translation needs a download — see details below"
+                            }
                         }
                     } else {
                         statusText = "Didn't catch that — tap the mic to try again."
                     }
                 }
-                is SpeechEvent.Error -> statusText = event.message
+                is SpeechEvent.Error -> {
+                    errorText = event.message
+                    statusText = "Couldn't hear you"
+                }
                 is SpeechEvent.Done -> listening = false
             }
         }
@@ -164,10 +178,28 @@ fun HomeScreen(viewModel: MainViewModel) {
 
         Text(statusText, style = MaterialTheme.typography.bodyMedium)
 
+        errorText?.let {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Text(it, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        }
+
         if (recognizedText.isNotBlank()) {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("${sourceLang.flag} You said", style = MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${sourceLang.flag} You said",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { viewModel.speak(recognizedText, sourceLang.speechLocale) }) {
+                            Icon(Icons.Filled.VolumeUp, contentDescription = "Listen to what you said")
+                        }
+                    }
                     Text(recognizedText, style = MaterialTheme.typography.bodyLarge)
                 }
             }
@@ -179,7 +211,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("${targetLang.flag} Translation", style = MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${targetLang.flag} Translation",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { viewModel.speak(translatedText, targetLang.speechLocale) }) {
+                            Icon(Icons.Filled.VolumeUp, contentDescription = "Listen to translation")
+                        }
+                    }
                     Text(translatedText, style = MaterialTheme.typography.bodyLarge)
                 }
             }
