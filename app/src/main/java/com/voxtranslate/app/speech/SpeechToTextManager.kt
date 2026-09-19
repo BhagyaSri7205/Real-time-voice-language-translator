@@ -29,7 +29,12 @@ class SpeechToTextManager(private val context: Context) {
 
     fun listen(localeTag: String): Flow<SpeechEvent> = callbackFlow {
         if (!isAvailable()) {
-            trySend(SpeechEvent.Error("Speech recognition isn't available on this device."))
+            trySend(
+                SpeechEvent.Error(
+                    "Speech recognition isn't available on this device. Make sure the " +
+                        "Google app (or your device's voice input service) is installed and enabled."
+                )
+            )
             trySend(SpeechEvent.Done)
             close()
             return@callbackFlow
@@ -40,9 +45,12 @@ class SpeechToTextManager(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            // Give people more room to pause mid-sentence before the recognizer decides
+            // they're done — 1.2s was cutting people off, especially outside English.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 15000)
         }
 
         val listener = object : RecognitionListener {
@@ -57,12 +65,19 @@ class SpeechToTextManager(private val context: Context) {
 
             override fun onError(error: Int) {
                 val msg = when (error) {
-                    SpeechRecognizer.ERROR_NO_MATCH -> "Didn't catch that — try again."
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected."
+                    SpeechRecognizer.ERROR_NO_MATCH ->
+                        "Didn't catch that — try speaking a bit slower and closer to the mic."
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected — tap the mic and try again."
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is required."
                     SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
                         "Network error — check your connection."
                     SpeechRecognizer.ERROR_AUDIO -> "Microphone error."
+                    // Added in API 31; referencing the constant is safe on older devices since
+                    // it's just an int — this branch simply won't be hit pre-31.
+                    12 -> "This language isn't available for voice input on this device yet."
+                    13 -> "This language isn't supported by your phone's speech recognizer. " +
+                        "Try English, or check Settings > System > Languages & input > Voice input " +
+                        "to see which languages are installed."
                     else -> "Speech recognition error ($error)."
                 }
                 trySend(SpeechEvent.Error(msg))
@@ -71,9 +86,12 @@ class SpeechToTextManager(private val context: Context) {
             }
 
             override fun onResults(results: Bundle?) {
+                // Take the first non-blank candidate rather than always index 0 — with
+                // EXTRA_MAX_RESULTS raised to 3, a later candidate is sometimes the only
+                // usable one for less common languages.
                 val text = results
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()
+                    ?.firstOrNull { it.isNotBlank() }
                     .orEmpty()
                 trySend(SpeechEvent.FinalResult(text))
                 trySend(SpeechEvent.Done)

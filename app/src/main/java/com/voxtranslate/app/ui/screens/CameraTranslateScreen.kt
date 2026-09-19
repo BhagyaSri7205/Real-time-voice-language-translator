@@ -98,6 +98,7 @@ fun CameraTranslateScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -218,16 +219,15 @@ fun CameraTranslateScreen(viewModel: MainViewModel) {
         Text(statusText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (scannedText.isNotBlank()) {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(14.dp)) {
                         Text("Scanned text", style = MaterialTheme.typography.labelLarge)
-                        Text(scannedText, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
+                        Text(scannedText, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -237,8 +237,9 @@ fun CameraTranslateScreen(viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(14.dp)) {
                         Text("${targetLang.flag} Translation", style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(6.dp))
                         Text(translatedText, style = MaterialTheme.typography.bodyLarge)
                         Row {
                             IconButton(onClick = { viewModel.speak(translatedText, targetLang.speechLocale) }) {

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.voxtranslate.app.MainViewModel
 import com.voxtranslate.app.data.auth.AuthResult
+import com.voxtranslate.app.ui.components.VoxAppBackground
 import kotlinx.coroutines.launch
 
 /**
@@ -62,65 +63,71 @@ fun LoginScreen(viewModel: MainViewModel) {
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    VoxAppBackground {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.padding(28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Text("🎙️", style = MaterialTheme.typography.headlineLarge)
-                Text("VoxTranslate", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-                Text(
-                    if (isRegisterMode) "Create a new account" else "Login to your account",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Username") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                errorText?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                }
-
-                if (isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Button(onClick = { submit() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (isRegisterMode) "REGISTER" else "LOGIN")
-                    }
-                }
-
-                TextButton(onClick = {
-                    isRegisterMode = !isRegisterMode
-                    errorText = null
-                }) {
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text("🎙️", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        if (isRegisterMode) "Already have an account? Login"
-                        else "Don't have an account? Register"
+                        "VoxTranslate",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
+                    Text(
+                        if (isRegisterMode) "Create a new account" else "Login to your account",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text("Username") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    errorText?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    if (isLoading) {
+                        CircularProgressIndicator()
+                    } else {
+                        Button(onClick = { submit() }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (isRegisterMode) "REGISTER" else "LOGIN")
+                        }
+                    }
+
+                    TextButton(onClick = {
+                        isRegisterMode = !isRegisterMode
+                        errorText = null
+                    }) {
+                        Text(
+                            if (isRegisterMode) "Already have an account? Login"
+                            else "Don't have an account? Register"
+                        )
+                    }
                 }
             }
         }

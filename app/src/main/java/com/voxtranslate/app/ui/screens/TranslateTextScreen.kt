@@ -186,6 +186,15 @@ fun TranslateTextScreen(viewModel: MainViewModel) {
             )
         }
 
+        Button(
+            onClick = { viewModel.speak(inputText, sourceLang.speechLocale) },
+            colors = ButtonDefaults.outlinedButtonColors(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text("Speak Input (${sourceLang.displayName})")
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { runTranslate() }, modifier = Modifier.weight(1f)) {
                 Text("Translate")
