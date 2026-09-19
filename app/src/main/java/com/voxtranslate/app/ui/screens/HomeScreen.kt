@@ -38,11 +38,13 @@ import com.voxtranslate.app.translate.Languages
 import com.voxtranslate.app.translate.TranslateResult
 import com.voxtranslate.app.ui.components.LanguagePicker
 import com.voxtranslate.app.ui.components.MicButton
+import com.voxtranslate.app.ui.components.TalkingAvatar
 
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
+    val isSpeaking by viewModel.isSpeaking.collectAsState()
     var sourceLang by remember(settings.defaultSourceLanguage) {
         mutableStateOf(Languages.byName(settings.defaultSourceLanguage))
     }
@@ -128,6 +130,7 @@ fun HomeScreen(viewModel: MainViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
+        TalkingAvatar(isTalking = isSpeaking, size = 100.dp)
         Text("VoxTranslate", style = MaterialTheme.typography.headlineLarge)
         Text(
             "Speak, and hear it in another language instantly",

@@ -85,6 +85,9 @@ dependencies {
     // Coroutines / Play services task interop
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
+    // Password hashing for local login (mirrors the original app's bcrypt use)
+    implementation("org.mindrot:jbcrypt:0.4")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

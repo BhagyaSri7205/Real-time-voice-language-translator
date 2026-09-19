@@ -41,6 +41,7 @@ import com.voxtranslate.app.translate.TranslateResult
 import com.voxtranslate.app.translate.VoxLanguage
 import com.voxtranslate.app.ui.components.LanguagePicker
 import com.voxtranslate.app.ui.components.MicButton
+import com.voxtranslate.app.ui.components.TalkingAvatar
 
 private data class Turn(val speakerLabel: String, val original: String, val translated: String)
 
@@ -54,6 +55,7 @@ private data class Turn(val speakerLabel: String, val original: String, val tran
 fun ConversationScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
+    val isSpeaking by viewModel.isSpeaking.collectAsState()
 
     var langA by remember(settings.defaultSourceLanguage) {
         mutableStateOf(Languages.byName(settings.defaultSourceLanguage))
@@ -136,7 +138,14 @@ fun ConversationScreen(viewModel: MainViewModel) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Conversation Mode", style = MaterialTheme.typography.headlineMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Conversation Mode", style = MaterialTheme.typography.headlineMedium)
+            TalkingAvatar(isTalking = isSpeaking, size = 72.dp)
+        }
         Text(statusText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {

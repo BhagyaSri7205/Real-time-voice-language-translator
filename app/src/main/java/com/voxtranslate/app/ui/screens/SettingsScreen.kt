@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import com.voxtranslate.app.ui.components.LanguagePicker
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
     val settings by viewModel.settings.collectAsState()
+    val currentUsername by viewModel.currentUsername.collectAsState()
 
     Column(
         modifier = Modifier
@@ -36,6 +39,27 @@ fun SettingsScreen(viewModel: MainViewModel) {
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Signed in as", style = MaterialTheme.typography.labelLarge)
+                    Text(currentUsername ?: "", style = MaterialTheme.typography.titleMedium)
+                }
+                OutlinedButton(onClick = { viewModel.logOut() }) {
+                    Text("Log out")
+                }
+            }
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

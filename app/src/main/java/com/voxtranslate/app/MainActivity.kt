@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.voxtranslate.app.ui.navigation.VoxTranslateNavHost
+import com.voxtranslate.app.ui.screens.LoginScreen
 import com.voxtranslate.app.ui.theme.VoxTranslateTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,8 +20,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val settings by viewModel.settings.collectAsState()
+            val currentUsername by viewModel.currentUsername.collectAsState()
+
             VoxTranslateTheme(darkTheme = settings.darkTheme) {
-                VoxTranslateNavHost(viewModel = viewModel)
+                if (currentUsername == null) {
+                    LoginScreen(viewModel = viewModel)
+                } else {
+                    VoxTranslateNavHost(viewModel = viewModel)
+                }
             }
         }
     }
