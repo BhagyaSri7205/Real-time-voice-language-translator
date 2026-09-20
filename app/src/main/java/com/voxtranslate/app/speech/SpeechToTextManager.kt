@@ -6,9 +6,12 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 
 sealed class SpeechEvent {
     object Listening : SpeechEvent()
@@ -53,6 +56,30 @@ class SpeechToTextManager(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 15000)
         }
 
+        // Captured explicitly because the RecognitionListener below is a plain object (not a
+        // CoroutineScope), so its methods can't resolve a bare `launch` on their own — they
+        // need this reference to start/restart the watchdog from inside a callback.
+        val producerScope = this
+
+        fun startWatchdog(message: String): Job = producerScope.launch {
+            delay(12_000)
+            trySend(SpeechEvent.Error(message))
+            trySend(SpeechEvent.Done)
+            close()
+        }
+
+        // Watchdog: on some devices, asking for a language the recognizer service doesn't
+        // actually support makes it silently do nothing at all — no onError, no onResults,
+        // nothing — so the mic would otherwise sit "listening" forever with zero feedback.
+        // If neither a result nor an error arrives within this window, surface a clear,
+        // actionable message ourselves instead of hanging indefinitely.
+        var watchdog: Job? = startWatchdog(
+            "No response from the speech recognizer for this language after 12 seconds. " +
+                "Your phone likely doesn't have voice input installed for this language — " +
+                "check Settings > System > Languages & input > Voice input, or try English " +
+                "to confirm the mic itself works."
+        )
+
         val listener = object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 trySend(SpeechEvent.Listening)
@@ -64,6 +91,7 @@ class SpeechToTextManager(private val context: Context) {
             override fun onEndOfSpeech() {}
 
             override fun onError(error: Int) {
+                watchdog?.cancel()
                 val msg = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH ->
                         "Didn't catch that — try speaking a bit slower and closer to the mic."
@@ -86,6 +114,7 @@ class SpeechToTextManager(private val context: Context) {
             }
 
             override fun onResults(results: Bundle?) {
+                watchdog?.cancel()
                 // Take the first non-blank candidate rather than always index 0 — with
                 // EXTRA_MAX_RESULTS raised to 3, a later candidate is sometimes the only
                 // usable one for less common languages.
@@ -103,6 +132,13 @@ class SpeechToTextManager(private val context: Context) {
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
                 if (!text.isNullOrBlank()) {
+                    // Partial results prove the recognizer is actively working, so push the
+                    // watchdog out rather than let a long sentence trip a false timeout.
+                    watchdog?.cancel()
+                    watchdog = startWatchdog(
+                        "The speech recognizer stopped responding. Try again, or check " +
+                            "Settings > System > Languages & input > Voice input for this language."
+                    )
                     trySend(SpeechEvent.PartialResult(text))
                 }
             }
@@ -114,6 +150,7 @@ class SpeechToTextManager(private val context: Context) {
         recognizer.startListening(intent)
 
         awaitClose {
+            watchdog?.cancel()
             recognizer.stopListening()
             recognizer.destroy()
         }
