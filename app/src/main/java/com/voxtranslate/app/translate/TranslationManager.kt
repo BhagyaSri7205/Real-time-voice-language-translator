@@ -45,10 +45,10 @@ object TranslationManager {
         if (text.isBlank()) return TranslateResult.Success("")
         if (sourceCode == targetCode) return TranslateResult.Success(text)
 
-        val client = clientFor(sourceCode, targetCode)
-            ?: return TranslateResult.Error("This language isn't supported for on-device translation yet.")
-
         return try {
+            val client = clientFor(sourceCode, targetCode)
+                ?: return TranslateResult.Error("This language isn't supported for on-device translation yet.")
+
             // Downloads the language model on first use for this pair (a few MB), then caches
             // it on-device. Allowed on any network by default so translation "just works" the
             // first time; pass allowDownloadOnAnyNetwork = false to restrict downloads to Wi-Fi.
@@ -60,7 +60,7 @@ object TranslationManager {
             TranslateResult.Success(result)
         } catch (e: Exception) {
             TranslateResult.Error(
-                "Translation failed: ${e.message ?: "unknown error"}. " +
+                "Translation failed: ${e.message ?: e.javaClass.simpleName}. " +
                     "Make sure you're connected to the internet the first time you use a new language pair " +
                     "(models download once, then work offline)."
             )

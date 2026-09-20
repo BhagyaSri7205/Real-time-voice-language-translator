@@ -102,7 +102,12 @@ fun HomeScreen(viewModel: MainViewModel) {
                     recognizedText = event.text
                     if (event.text.isNotBlank()) {
                         statusText = "Translating…"
-                        when (val result = viewModel.translate(event.text, sourceLang.mlkitCode, targetLang.mlkitCode)) {
+                        val result = try {
+                            viewModel.translate(event.text, sourceLang.mlkitCode, targetLang.mlkitCode)
+                        } catch (e: Exception) {
+                            TranslateResult.Error("Unexpected error: ${e.message ?: e.javaClass.simpleName}")
+                        }
+                        when (result) {
                             is TranslateResult.Success -> {
                                 translatedText = result.text
                                 statusText = "Done"

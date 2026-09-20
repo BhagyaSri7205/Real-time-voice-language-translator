@@ -123,7 +123,12 @@ fun ConversationScreen(viewModel: MainViewModel) {
                 is SpeechEvent.FinalResult -> {
                     if (event.text.isNotBlank()) {
                         statusText = "Translating…"
-                        when (val result = viewModel.translate(event.text, speakLang.mlkitCode, hearLang.mlkitCode)) {
+                        val result = try {
+                            viewModel.translate(event.text, speakLang.mlkitCode, hearLang.mlkitCode)
+                        } catch (e: Exception) {
+                            TranslateResult.Error("Unexpected error: ${e.message ?: e.javaClass.simpleName}")
+                        }
+                        when (result) {
                             is TranslateResult.Success -> {
                                 turns.add(0, Turn(speakerLabel, event.text, result.text, hearLang.speechLocale))
                                 viewModel.saveHistory(
